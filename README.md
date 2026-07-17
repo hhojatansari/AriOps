@@ -9,7 +9,7 @@ Requires Python 3.12.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install --index-url https://pypi.efrda.ir -e ".[dev]"
 uvicorn ariops.main:app --reload
 ```
 
@@ -19,4 +19,13 @@ Run tests with:
 
 ```bash
 pytest
+```
+
+## Docker
+
+Build and run the service using the configured private Python registry:
+
+```bash
+docker build -t ariops .
+docker run --rm -p 8000:8000 ariops
 ```
