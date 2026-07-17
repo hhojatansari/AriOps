@@ -1,0 +1,2 @@
+"""Kubernetes infrastructure contracts."""
+
