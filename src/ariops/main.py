@@ -2,12 +2,8 @@
 
 from fastapi import FastAPI
 
+from ariops.api.health import router as health_router
 from ariops.config import settings
 
 app = FastAPI(title=settings.app_name)
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    """Return the service health status."""
-    return {"status": "ok", "service": settings.app_name}
+app.include_router(health_router)
