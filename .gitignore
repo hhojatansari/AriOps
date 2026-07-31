@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Local planning notes
+LOCAL_NEXT_STEPS.md
