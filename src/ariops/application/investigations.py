@@ -1,10 +1,14 @@
 """Application service for starting incident investigations."""
 
 from ariops.domain.incidents import Incident, Severity
+from ariops.domain.repositories import IncidentRepository
 
 
 class InvestigationService:
     """Start the lifecycle of an incident investigation."""
+
+    def __init__(self, incident_repository: IncidentRepository) -> None:
+        self._incident_repository = incident_repository
 
     def start_investigation(
         self,
@@ -31,4 +35,4 @@ class InvestigationService:
             resource=resource,
         )
         incident.mark_investigating()
-        return incident
+        return self._incident_repository.save(incident)

@@ -12,15 +12,24 @@ The project follows a modular architecture that separates deterministic platform
 
 * [Architecture](docs/architecture.md)
 * [Investigation Flow](docs/investigation-flow.md)
+* [Database ERD](docs/database-erd.md)
 
 ## Local Development
 
 Requires Python 3.12.
 
+The service requires PostgreSQL. Set `ARIOPS_DATABASE_URL` to a PostgreSQL
+connection URL before starting it. The default local URL is:
+
+```text
+postgresql+psycopg://ariops:ariops@localhost:5432/ariops
+```
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install --index-url https://pypi.efrda.ir -e ".[dev]"
+alembic upgrade head
 uvicorn ariops.main:app --reload
 ```
 
@@ -38,7 +47,10 @@ pytest
 
 ## Docker
 
+For a local PostgreSQL database and API service, use Docker Compose:
+
 ```bash
-docker build -t ariops .
-docker run --rm -p 8000:8000 ariops
+docker compose up --build
 ```
+
+Compose runs the database migration before starting the API.
