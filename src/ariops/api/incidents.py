@@ -1,20 +1,23 @@
 """Incident investigation API routes and schemas."""
 
-from uuid import UUID
-
 from datetime import datetime
+from functools import lru_cache
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ariops.application.evidence_collection import EvidenceCollectionService
 from ariops.application.investigations import InvestigationService
+from ariops.application.tools import ToolRegistry
 from ariops.domain.incidents import EvidenceType, Incident, IncidentStatus, Severity
 from ariops.infrastructure.persistence.database import get_db_session
 from ariops.infrastructure.persistence.sqlalchemy_repositories import (
     SqlAlchemyIncidentRepository,
 )
+from ariops.infrastructure.k8s.fake_tools import register_fake_kubernetes_tools
 
 router = APIRouter(prefix="/api/v1/incidents", tags=["incidents"])
 
@@ -28,16 +31,6 @@ class InvestigateIncidentRequest(BaseModel):
     namespace: str | None = None
     resource: str | None = None
     symptom: str | None = None
-
-
-class InvestigateIncidentResponse(BaseModel):
-    """Initial state returned when an investigation is started."""
-
-    incident_id: UUID
-    status: IncidentStatus
-    title: str
-    severity: Severity
-    message: str
 
 
 class EvidenceResponse(BaseModel):
@@ -66,11 +59,23 @@ class IncidentResponse(BaseModel):
     evidence: list[EvidenceResponse]
 
 
+@lru_cache
+def get_investigation_tool_registry() -> ToolRegistry:
+    """Build the temporary deterministic Kubernetes tool registry."""
+    registry = ToolRegistry()
+    register_fake_kubernetes_tools(registry)
+    return registry
+
+
 def get_investigation_service(
     session: Session = Depends(get_db_session),
 ) -> InvestigationService:
-    """Build an investigation service backed by the request database session."""
-    return InvestigationService(SqlAlchemyIncidentRepository(session))
+    """Build a request-scoped investigation workflow service."""
+    registry = get_investigation_tool_registry()
+    return InvestigationService(
+        SqlAlchemyIncidentRepository(session),
+        EvidenceCollectionService(registry),
+    )
 
 
 def to_incident_response(incident: Incident) -> IncidentResponse:
@@ -99,12 +104,12 @@ def to_incident_response(incident: Incident) -> IncidentResponse:
     )
 
 
-@router.post("/investigate", response_model=InvestigateIncidentResponse)
+@router.post("/investigate", response_model=IncidentResponse)
 def investigate_incident(
     request: InvestigateIncidentRequest,
     investigation_service: InvestigationService = Depends(get_investigation_service),
-) -> InvestigateIncidentResponse:
-    """Start and persist an incident investigation workflow."""
+) -> IncidentResponse:
+    """Run the initial deterministic investigation workflow and persist it."""
     incident = investigation_service.start_investigation(
         title=request.title,
         source=request.source,
@@ -114,13 +119,7 @@ def investigate_incident(
         symptom=request.symptom,
     )
 
-    return InvestigateIncidentResponse(
-        incident_id=incident.id,
-        status=incident.status,
-        title=incident.title,
-        severity=incident.severity,
-        message="Investigation workflow is not implemented yet.",
-    )
+    return to_incident_response(incident)
 
 
 @router.get("/{incident_id}", response_model=IncidentResponse)

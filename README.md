@@ -39,6 +39,25 @@ The health endpoint is available at:
 http://127.0.0.1:8000/health
 ```
 
+Start a deterministic Kubernetes investigation with:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/incidents/investigate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Checkout errors",
+    "source": "monitoring",
+    "severity": "critical",
+    "namespace": "payments",
+    "resource": "deployment/checkout",
+    "symptom": "HTTP 500 error rate increased"
+  }'
+```
+
+The current workflow stores the alert context and collects a fixed initial set
+of Kubernetes evidence through local fake tool adapters. A later step will
+replace them with real Kubernetes integrations and agent-directed tool choice.
+
 Run tests with:
 
 ```bash
