@@ -5,9 +5,29 @@ aggregate root; it can have many evidence items, findings, and recommendations.
 
 ```mermaid
 erDiagram
+    SERVICES ||--o{ SERVICE_KUBERNETES_DEPLOYMENTS : has
+    SERVICES ||--o{ INCIDENTS : investigated_by
+    SERVICE_KUBERNETES_DEPLOYMENTS ||--o{ INCIDENTS : targets
     INCIDENTS ||--o{ EVIDENCE : contains
     INCIDENTS ||--o{ FINDINGS : produces
     INCIDENTS ||--o{ RECOMMENDATIONS : includes
+
+    SERVICES {
+        uuid id PK
+        varchar name
+        text description
+        varchar owner
+        boolean enabled
+    }
+
+    SERVICE_KUBERNETES_DEPLOYMENTS {
+        uuid id PK
+        uuid service_id FK
+        varchar cluster_name
+        varchar namespace
+        varchar deployment_name
+        boolean enabled
+    }
 
     INCIDENTS {
         uuid id PK
@@ -16,6 +36,8 @@ erDiagram
         varchar source
         varchar namespace
         varchar resource
+        uuid service_id FK
+        uuid service_kubernetes_deployment_id FK
         varchar status
         timestamptz created_at
         timestamptz updated_at

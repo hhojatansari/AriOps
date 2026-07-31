@@ -17,6 +17,7 @@ flowchart TB
         F[Tool Registry]
         G[Evidence Store]
         H[Report Generator]
+        V[Service Catalog]
 
         A --> B
         B --> C
@@ -24,6 +25,7 @@ flowchart TB
         D --> E
         C --> G
         C --> H
+        C --> V
     end
 
     subgraph AGENT["Agent Layer"]
@@ -52,6 +54,7 @@ flowchart TB
         U[Source Code and Changes]
     end
 
+    V --> C
     C --> I
     M --> F
 

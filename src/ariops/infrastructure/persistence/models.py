@@ -13,6 +13,31 @@ class Base(DeclarativeBase):
     """Base class for database models."""
 
 
+class ServiceModel(Base):
+    __tablename__ = "services"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    kubernetes_deployments: Mapped[list["ServiceKubernetesDeploymentModel"]] = relationship(back_populates="service")
+
+
+class ServiceKubernetesDeploymentModel(Base):
+    __tablename__ = "service_kubernetes_deployments"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    service_id: Mapped[UUID] = mapped_column(ForeignKey("services.id"), index=True)
+    cluster_name: Mapped[str] = mapped_column(String(255))
+    namespace: Mapped[str] = mapped_column(String(255))
+    deployment_name: Mapped[str] = mapped_column(String(255))
+    enabled: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    service: Mapped[ServiceModel] = relationship(back_populates="kubernetes_deployments")
+
+
 class IncidentModel(Base):
     """Stored incident aggregate root."""
 
@@ -24,6 +49,8 @@ class IncidentModel(Base):
     source: Mapped[str] = mapped_column(String(255))
     namespace: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resource: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    service_id: Mapped[UUID | None] = mapped_column(ForeignKey("services.id"), nullable=True, index=True)
+    service_kubernetes_deployment_id: Mapped[UUID | None] = mapped_column(ForeignKey("service_kubernetes_deployments.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
