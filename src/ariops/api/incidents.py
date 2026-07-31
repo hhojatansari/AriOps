@@ -12,12 +12,15 @@ from sqlalchemy.orm import Session
 from ariops.application.evidence_collection import EvidenceCollectionService
 from ariops.application.investigations import InvestigationService
 from ariops.application.tools import ToolRegistry
+from ariops.config import settings
 from ariops.domain.incidents import EvidenceType, Incident, IncidentStatus, Severity
 from ariops.infrastructure.persistence.database import get_db_session
 from ariops.infrastructure.persistence.sqlalchemy_repositories import (
     SqlAlchemyIncidentRepository,
+    SqlAlchemyServiceCatalogRepository,
 )
 from ariops.infrastructure.k8s.fake_tools import register_fake_kubernetes_tools
+from ariops.infrastructure.k8s.real_tools import register_kubernetes_tools
 
 router = APIRouter(prefix="/api/v1/incidents", tags=["incidents"])
 
@@ -31,6 +34,8 @@ class InvestigateIncidentRequest(BaseModel):
     namespace: str | None = None
     resource: str | None = None
     symptom: str | None = None
+    service_id: UUID | None = None
+    service_kubernetes_deployment_id: UUID | None = None
 
 
 class EvidenceResponse(BaseModel):
@@ -54,6 +59,8 @@ class IncidentResponse(BaseModel):
     severity: Severity
     namespace: str | None
     resource: str | None
+    service_id: UUID | None
+    service_kubernetes_deployment_id: UUID | None
     created_at: datetime
     updated_at: datetime
     evidence: list[EvidenceResponse]
@@ -61,9 +68,12 @@ class IncidentResponse(BaseModel):
 
 @lru_cache
 def get_investigation_tool_registry() -> ToolRegistry:
-    """Build the temporary deterministic Kubernetes tool registry."""
+    """Build the configured Kubernetes tool registry."""
     registry = ToolRegistry()
-    register_fake_kubernetes_tools(registry)
+    if settings.kubernetes_tool_adapter == "fake":
+        register_fake_kubernetes_tools(registry)
+    else:
+        register_kubernetes_tools(registry, settings)
     return registry
 
 
@@ -75,6 +85,8 @@ def get_investigation_service(
     return InvestigationService(
         SqlAlchemyIncidentRepository(session),
         EvidenceCollectionService(registry),
+        SqlAlchemyServiceCatalogRepository(session),
+        settings.kubernetes_cluster_name,
     )
 
 
@@ -88,6 +100,8 @@ def to_incident_response(incident: Incident) -> IncidentResponse:
         severity=incident.severity,
         namespace=incident.namespace,
         resource=incident.resource,
+        service_id=incident.service_id,
+        service_kubernetes_deployment_id=incident.service_kubernetes_deployment_id,
         created_at=incident.created_at,
         updated_at=incident.updated_at,
         evidence=[
@@ -110,14 +124,15 @@ def investigate_incident(
     investigation_service: InvestigationService = Depends(get_investigation_service),
 ) -> IncidentResponse:
     """Run the initial deterministic investigation workflow and persist it."""
-    incident = investigation_service.start_investigation(
-        title=request.title,
-        source=request.source,
-        severity=request.severity,
-        namespace=request.namespace,
-        resource=request.resource,
-        symptom=request.symptom,
-    )
+    try:
+        incident = investigation_service.start_investigation(
+            title=request.title, source=request.source, severity=request.severity,
+            namespace=request.namespace, resource=request.resource, symptom=request.symptom,
+            service_id=request.service_id,
+            service_kubernetes_deployment_id=request.service_kubernetes_deployment_id,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
 
     return to_incident_response(incident)
 

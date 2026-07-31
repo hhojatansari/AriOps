@@ -99,6 +99,8 @@ class Incident:
     source: str
     namespace: str | None = None
     resource: str | None = None
+    service_id: UUID | None = None
+    service_kubernetes_deployment_id: UUID | None = None
     status: IncidentStatus = IncidentStatus.NEW
     evidence: list[Evidence] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)

@@ -13,6 +13,7 @@ sequenceDiagram
     participant S as Alert Source / User
     participant I as Input Interface
     participant M as Incident Service
+    participant C as Service Catalog
     participant A as Investigation Agent
     participant T as Tool Registry
     participant X as External Systems
@@ -23,6 +24,8 @@ sequenceDiagram
     S->>I: Send alert or investigation request
     I->>M: Validate and normalize input
 
+    M->>C: Resolve registered service targets
+    C-->>M: Return cluster, namespace and deployment target
     M->>D: Create incident
     M->>A: Start investigation
 

@@ -2,7 +2,7 @@
 
 from ariops.application.evidence_collection import EvidenceCollectionService
 from ariops.domain.incidents import Evidence, EvidenceType, Incident, Severity
-from ariops.domain.repositories import IncidentRepository
+from ariops.domain.repositories import IncidentRepository, ServiceCatalogRepository
 from ariops.domain.tools import ToolCall
 
 
@@ -13,9 +13,13 @@ class InvestigationService:
         self,
         incident_repository: IncidentRepository,
         evidence_collection_service: EvidenceCollectionService,
+        service_catalog_repository: ServiceCatalogRepository,
+        configured_cluster_name: str,
     ) -> None:
         self._incident_repository = incident_repository
         self._evidence_collection_service = evidence_collection_service
+        self._service_catalog_repository = service_catalog_repository
+        self._configured_cluster_name = configured_cluster_name
 
     def start_investigation(
         self,
@@ -26,15 +30,28 @@ class InvestigationService:
         namespace: str | None = None,
         resource: str | None = None,
         symptom: str | None = None,
+        service_id=None,
+        service_kubernetes_deployment_id=None,
     ) -> Incident:
         """Create, collect deterministic evidence for, and persist an incident."""
 
+        deployment = None
+        if service_id:
+            deployment = self._service_catalog_repository.get_kubernetes_deployment(service_id, service_kubernetes_deployment_id)
+            if deployment is None:
+                raise ValueError("Service has no single enabled Kubernetes deployment target")
+            if deployment.cluster_name != self._configured_cluster_name:
+                raise ValueError("Service deployment cluster is not configured")
+            namespace = deployment.namespace
+            resource = f"deployment/{deployment.deployment_name}"
         incident = Incident(
             title=title,
             source=source,
             severity=severity,
             namespace=namespace,
             resource=resource,
+            service_id=service_id,
+            service_kubernetes_deployment_id=deployment.id if deployment else None,
         )
         incident.mark_investigating()
 
